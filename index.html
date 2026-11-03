@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>スクエア碁</title>
+<meta name="description" content="ガラスのクリスタルを四角い凹みに嵌めて遊ぶ純碁。囲まれたクリスタルは砕け散る。5・7・9路、COMはLV1〜3。">
+<meta name="theme-color" content="#0b0d10">
+<meta property="og:type" content="website">
+<meta property="og:title" content="スクエア碁">
+<meta property="og:description" content="ガラスのクリスタルを四角い凹みに嵌めて遊ぶ純碁。囲まれたクリスタルは砕け散る。5・7・9路、COMはLV1〜3。">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="スクエア碁">
+<meta name="twitter:description" content="ガラスのクリスタルを四角い凹みに嵌めて遊ぶ純碁。囲まれたクリスタルは砕け散る。5・7・9路、COMはLV1〜3。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230b0d10'/%3E%3Cpath d='M12 8h14l6 6v12l-6 6H12l-6-6V14z' fill='%2322c468' stroke='%23c8ffdc' stroke-width='2'/%3E%3Cpath d='M38 32h14l6 6v12l-6 6H38l-6-6V38z' fill='%23e22242' stroke='%23ffc4ce' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+html { -webkit-text-size-adjust: 100%; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); background: #0b0d10; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 暗い机の上に銀色のアルミ盤。上に題と両者の状態、中央に盤、下に操作と設定。色は無彩色の暗色と、緑・赤の発光だけ。 */
+:root {
+  --bg: #0b0d10;
+  --panel: #13171c;
+  --line: #262d35;
+  --text: #e8eef0;
+  --muted: #8b97a1;
+  --green: #43e88f;
+  --red: #ff5a66;
+  --amber: #f0c75e;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  padding-block: 20px 44px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header h1 { font-weight: 700; font-size: 1.8rem; letter-spacing: 0.2em; margin: 0; line-height: 1.2; }
+
+.scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.player {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 12px 14px; min-width: 0; gap: 14px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.player.g.active { border-color: var(--green); box-shadow: 0 0 16px rgba(67,232,143,.28); }
+.player.r.active { border-color: var(--red); box-shadow: 0 0 16px rgba(255,90,102,.28); }
+.sw { flex: none; width: 40px; height: 40px; clip-path: polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%); }
+.sw.g { background: linear-gradient(135deg, #c8ffdc, #22c468 45%, #045c30); }
+.sw.r { background: linear-gradient(135deg, #ffc4ce, #e22242 45%, #60041a); }
+.pinfo { min-width: 0; }
+.pname { font-size: 0.86rem; font-weight: 500; color: #b9c4cc; letter-spacing: 0.08em; white-space: nowrap; }
+.pcount { font-family: var(--font-mono); font-weight: 600; font-size: 2.7rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.player.g .pcount { color: var(--green); text-shadow: 0 0 18px rgba(67,232,143,.45); }
+.player.r .pcount { color: var(--red); text-shadow: 0 0 18px rgba(255,90,102,.45); }
+.pcount small { font-family: var(--font-body); font-weight: 500; font-size: 0.9rem; color: var(--muted); margin-left: 4px; text-shadow: none; }
+.psub { font-size: 0.84rem; color: var(--muted); white-space: nowrap; }
+.psub b { font-family: var(--font-mono); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.komi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: -6px; }
+.komi { padding-left: calc(14px + 40px + 14px); font-size: 0.84rem; color: var(--muted); white-space: nowrap; }
+.komi b { font-family: var(--font-mono); font-weight: 600; color: var(--text); }
+
+.boardbox { position: relative; }
+.result {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 5%;
+  background: rgba(6, 8, 11, .66); backdrop-filter: blur(3px); border-radius: 10px;
+}
+.result[hidden] { display: none; }
+.rpanel {
+  width: 100%; max-width: 440px; text-align: center; padding: 16px 14px 14px;
+  background: linear-gradient(#1b2229, #10151b); border: 1px solid #4b5864; border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .65); display: flex; flex-direction: column; gap: 8px;
+}
+.rpanel.wg { border-color: var(--green); box-shadow: 0 0 28px rgba(67,232,143,.3), 0 12px 40px rgba(0,0,0,.65); }
+.rpanel.wr { border-color: var(--red); box-shadow: 0 0 28px rgba(255,90,102,.3), 0 12px 40px rgba(0,0,0,.65); }
+.rpanel h2 { margin: 0; font-size: 2rem; font-weight: 700; letter-spacing: .12em; line-height: 1.2; }
+.rpanel.wg h2 { color: var(--green); text-shadow: 0 0 20px rgba(67,232,143,.5); }
+.rpanel.wr h2 { color: var(--red); text-shadow: 0 0 20px rgba(255,90,102,.5); }
+.rpanel p { margin: 0; font-size: .95rem; color: #c9d2d8; }
+.rscores { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 4px 0; }
+.rvs { color: var(--muted); font-size: .8rem; letter-spacing: .1em; }
+.rbox { flex: 0 1 38%; min-width: 0; padding: 8px 6px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.03); opacity: .85; }
+.rbox.win { flex-basis: 46%; opacity: 1; padding: 12px 6px; }
+.rbox.g.win { border-color: var(--green); box-shadow: 0 0 18px rgba(67,232,143,.3); }
+.rbox.r.win { border-color: var(--red); box-shadow: 0 0 18px rgba(255,90,102,.3); }
+.rl { display: block; font-size: .8rem; color: var(--muted); letter-spacing: .1em; }
+.rn { display: block; font-family: var(--font-mono); font-weight: 600; font-size: 1.7rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rbox.win .rn { font-size: 2.5rem; }
+.rbox.g .rn { color: var(--green); }
+.rbox.r .rn { color: var(--red); }
+.rd { display: block; min-height: 1.3em; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rbtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .rpanel { animation: rpop .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+  @keyframes rpop { from { opacity: 0; transform: translateY(10px) scale(.94); } to { opacity: 1; transform: none; } }
+}
+button.danger { color: #ff9aa2; border-color: #5c3238; }
+button.danger:hover:not(:disabled) { border-color: var(--red); }
+button.danger.armed { background: #4a1d24; color: #fff; border-color: var(--red); }
+
+canvas#board { display: block; width: 100%; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 10px; touch-action: manipulation; cursor: pointer; }
+
+#status { min-height: 2.9em; margin: 0; font-size: 0.95rem; }
+#status.warn { color: var(--amber); }
+#status.end { font-weight: 700; font-size: 1.05rem; color: var(--text); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+button, select {
+  font: inherit; font-size: 0.9rem; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 9px 14px; cursor: pointer; min-height: 40px;
+}
+button:hover:not(:disabled), select:hover:not(:disabled) { border-color: #566472; }
+button:disabled, select:disabled { opacity: .4; cursor: default; }
+button.primary { background: var(--text); color: #0b0d10; border-color: var(--text); font-weight: 700; }
+button:focus-visible, select:focus-visible, canvas:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.opts label { display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; color: var(--muted); letter-spacing: .08em; }
+.opts select { width: 100%; }
+
+details.rules { border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted); font-size: 0.88rem; }
+details.rules summary { cursor: pointer; color: var(--text); }
+details.rules ul { margin: 8px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.share { display: flex; }
+.xbtn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.9rem; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 9px 16px; min-height: 40px; }
+.xbtn:hover { border-color: #566472; }
+.xbtn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header><h1>スクエア碁</h1></header>
+
+  <section class="scores" aria-label="盤上のクリスタルの数">
+    <div class="player g" id="pg">
+      <span class="sw g"></span>
+      <div class="pinfo">
+        <div class="pname">緑（先手）</div>
+        <div class="pcount"><span id="cg">0</span><small>個</small></div>
+        <div class="psub">砕いた数 <b id="kg">0</b></div>
+      </div>
+    </div>
+    <div class="player r" id="pr">
+      <span class="sw r"></span>
+      <div class="pinfo">
+        <div class="pname">赤（後手）</div>
+        <div class="pcount"><span id="cr">0</span><small>個</small></div>
+        <div class="psub">砕いた数 <b id="kr">0</b></div>
+      </div>
+    </div>
+  </section>
+  <div class="komi-row"><span></span><span class="komi">赤のコミ <b id="komiv">2.5</b></span></div>
+
+  <div class="boardbox">
+    <canvas id="board" tabindex="0" aria-label="盤。凹んだマスをタップしてクリスタルを嵌めます"></canvas>
+    <div class="result" id="result" hidden>
+      <div class="rpanel" id="rpanel">
+        <h2 id="rtitle">勝利！</h2>
+        <p id="rsub"></p>
+        <div class="rscores">
+          <div class="rbox g" id="rbg"><span class="rl">緑</span><span class="rn" id="rgn">0</span><span class="rd" id="rgd"></span></div>
+          <span class="rvs">VS</span>
+          <div class="rbox r" id="rbr"><span class="rl">赤</span><span class="rn" id="rrn">0</span><span class="rd" id="rrd"></span></div>
+        </div>
+        <div class="rbtns">
+          <button id="ragain" class="primary" type="button">もう一局</button>
+          <button id="rview" type="button">盤面を見る</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <div class="controls">
+    <button id="bpass" class="primary" type="button">パス</button>
+    <button id="bresign" class="danger" type="button">投了</button>
+    <button id="bundo" type="button">一手戻す</button>
+    <button id="bnew" type="button">新しい対局</button>
+    <button id="bres" type="button" hidden>結果を見る</button>
+  </div>
+
+  <div class="opts">
+    <label for="sz">盤面
+      <select id="sz"><option value="5">5×5</option><option value="7" selected>7×7</option><option value="9">9×9</option></select>
+    </label>
+    <label for="komi">コミ（赤）
+      <select id="komi"><option value="0">無し</option><option value="2.5" selected>2.5</option><option value="6.5">6.5</option></select>
+    </label>
+    <label for="mode">対戦相手
+      <select id="mode"><option value="ai" selected>COM（赤）</option><option value="two">2人で交互に</option></select>
+    </label>
+    <label for="lv">COMの強さ
+      <select id="lv"><option value="1">LV1</option><option value="2" selected>LV2</option><option value="3">LV3</option></select>
+    </label>
+  </div>
+
+  <details class="rules">
+    <summary>ルール</summary>
+    <ul>
+      <li>緑が先手です。凹んだマスにクリスタルを嵌め、パスもできます。</li>
+      <li>相手のクリスタルの並びを、上下左右からすべて囲むと砕けて取れます。</li>
+      <li>自分のクリスタルが囲まれて呼吸点がなくなる手（自殺手）と、同じ局面に戻る手（コウ）は打てません。</li>
+      <li>同じ色のクリスタルが隣り合うと連結し、その間の斜面が光ります。</li>
+      <li>連続して二回パスで終局。片方の色だけに囲まれた空きマスは、その色のクリスタルで自動的に埋まります。</li>
+      <li>最後に盤上のクリスタルの数が多い方の勝ちです（赤にはコミを加えます）。</li>
+    </ul>
+  </details>
+
+  <div class="share"><a id="xshare" class="xbtn" target="_blank" rel="noopener">Xでこのゲームを共有</a></div>
+</main>
+
+<script>
+(function () {
+  var N = 7, komi = 2.5, vsAI = true, level = 2;
+  var COLS = {
+    1: { b: [34, 196, 104], l: [200, 255, 220], d: [4, 92, 48], glow: [70, 235, 120] },
+    2: { b: [226, 34, 66], l: [255, 196, 206], d: [96, 4, 26], glow: [255, 70, 96] }
+  };
+  var NAME = { 1: '緑', 2: '赤' };
+  var D = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // 上 右 下 左
+  var LV = { 1: { sims: 150, ms: 350 }, 2: { sims: 1500, ms: 1100 }, 3: { sims: 9000, ms: 3000 } };
+  var L_PIECE = 0.62, L_LINK = 1, L_TERR = 0.28; // 発光 LV2 / LV3 / LV1
+
+  var canvas = document.getElementById('board');
+  var ctx = canvas.getContext('2d');
+  var bgc = document.createElement('canvas');
+  var sprites = {};
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var NB = [], DG = [], onEdge = [], nbd = [];
+  var history = [], over = false, hover = -1, aiTimer = null, thinkToken = 0, busyUntil = 0;
+  var cellG = [], slopeG = [], placedAt = [], fx = [], atariColors = {};
+  var shake = { amp: 0, start: 0 };
+  var G = {}, W = 0, dpr = 1, last = 0;
+  var lowCount = 0, resTimer = null, resShownOnce = false, armTimer = null;
+
+  function el(id) { return document.getElementById(id); }
+  function rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function mix(a, b, t) { return [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)]; }
+  function rnd(seed, k) { var x = Math.sin(seed * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function S() { return history[history.length - 1]; }
+
+  /* ================= 盤の構造 ================= */
+  function build() {
+    NB = []; DG = []; onEdge = []; nbd = [];
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var a = [], dd = [], dg = [];
+      D.forEach(function (v) {
+        var nx = x + v[0], ny = y + v[1];
+        if (nx < 0 || ny < 0 || nx >= N || ny >= N) dd.push(-1);
+        else { var k = ny * N + nx; a.push(k); dd.push(k); }
+      });
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (v) {
+        var nx = x + v[0], ny = y + v[1];
+        if (nx >= 0 && ny >= 0 && nx < N && ny < N) dg.push(ny * N + nx);
+      });
+      NB.push(a); nbd.push(dd); DG.push(dg);
+      onEdge.push(x === 0 || y === 0 || x === N - 1 || y === N - 1 ? 1 : 0);
+    }
+  }
+
+  /* ================= 高速な碁のエンジン（盤は Int8Array） ================= */
+  var stampV = 0, vis = new Int32Array(81), stk = new Int16Array(81), grp = new Int16Array(81);
+  var gnum = 0, lastLib = -1;
+  function scanGroup(b, i) {
+    stampV++;
+    var c = b[i], sp = 0, gn = 0, libs = 0;
+    stk[sp++] = i; vis[i] = stampV;
+    while (sp) {
+      var k = stk[--sp]; grp[gn++] = k;
+      var ns = NB[k];
+      for (var j = 0; j < ns.length; j++) {
+        var m = ns[j];
+        if (vis[m] === stampV) continue;
+        var v = b[m];
+        if (v === 0) { vis[m] = stampV; libs++; lastLib = m; }
+        else if (v === c) { vis[m] = stampV; stk[sp++] = m; }
+      }
+    }
+    gnum = gn;
+    return libs;
+  }
+  // 戻り値: -2 = 違法、-1 = コウ無し、0以上 = 次のコウ禁止点
+  function fPlay(b, i, c, koIn) {
+    if (b[i] !== 0 || i === koIn) return -2;
+    b[i] = c;
+    var o = 3 - c, caps = 0, capPt = -1, ns = NB[i], j, m, g;
+    for (j = 0; j < ns.length; j++) {
+      m = ns[j];
+      if (b[m] === o && scanGroup(b, m) === 0) {
+        if (gnum === 1) capPt = m;
+        caps += gnum;
+        for (g = 0; g < gnum; g++) b[grp[g]] = 0;
+      }
+    }
+    var libs = scanGroup(b, i);
+    if (libs === 0) { b[i] = 0; return -2; }
+    if (caps === 1 && gnum === 1 && libs === 1) return capPt;
+    return -1;
+  }
+  function isOwnEye(b, i, c) {
+    var ns = NB[i], j;
+    for (j = 0; j < ns.length; j++) if (b[ns[j]] !== c) return false;
+    var bad = onEdge[i], dg = DG[i];
+    for (j = 0; j < dg.length; j++) if (b[dg[j]] !== c) bad++;
+    return bad < 2;
+  }
+  // 片方の色だけに囲まれた空き領域は、その色の地。緑-赤 を返す
+  function fastArea(b) {
+    var g = 0, r = 0, n = N * N, i;
+    stampV++;
+    for (i = 0; i < n; i++) if (b[i] === 1) g++; else if (b[i] === 2) r++;
+    for (i = 0; i < n; i++) {
+      if (b[i] !== 0 || vis[i] === stampV) continue;
+      var sp = 0, size = 0, t1 = false, t2 = false;
+      stk[sp++] = i; vis[i] = stampV;
+      while (sp) {
+        var k = stk[--sp]; size++;
+        var ns = NB[k];
+        for (var j = 0; j < ns.length; j++) {
+          var m = ns[j], v = b[m];
+          if (v === 0) { if (vis[m] !== stampV) { vis[m] = stampV; stk[sp++] = m; } }
+          else if (v === 1) t1 = true; else t2 = true;
+        }
+      }
+      if (t1 && !t2) g += size; else if (t2 && !t1) r += size;
+    }
+    return g - r;
+  }
+  function valueFor(diff, color) {
+    var g = diff - komi, v1 = g > 0 ? 1 : g === 0 ? 0.5 : 0;
+    return color === 1 ? v1 : 1 - v1;
+  }
+
+  /* ---- プレイアウト（軽量な方針つきランダム対局） ---- */
+  function pickMove(b, c, st, lastMv) {
+    var j, m, r, cand, i;
+    if (lastMv >= 0 && Math.random() < 0.85) {
+      cand = [];
+      var ns = NB[lastMv];
+      for (j = 0; j < ns.length; j++) {
+        m = ns[j];
+        if (b[m] !== 0 && scanGroup(b, m) === 1) cand.push(lastLib);
+      }
+      while (cand.length) {
+        var kk = (Math.random() * cand.length) | 0; i = cand[kk]; cand[kk] = cand[cand.length - 1]; cand.pop();
+        if (b[i] === 0 && !isOwnEye(b, i, c)) {
+          r = fPlay(b, i, c, st.ko);
+          if (r !== -2) { st.ko = r; return i; }
+        }
+      }
+    }
+    var emp = [], n = N * N;
+    for (i = 0; i < n; i++) if (b[i] === 0) emp.push(i);
+    while (emp.length) {
+      var k = (Math.random() * emp.length) | 0; i = emp[k]; emp[k] = emp[emp.length - 1]; emp.pop();
+      if (isOwnEye(b, i, c)) continue;
+      r = fPlay(b, i, c, st.ko);
+      if (r !== -2) { st.ko = r; return i; }
+    }
+    return -1;
+  }
+  function playout(b0, toPlay, ko0, passes0, lastMv) {
+    var b = b0.slice(), st = { ko: ko0 }, c = toPlay, passes = passes0, moves = 0, lm = lastMv, max = N * N * 2 + 20;
+    while (passes < 2 && moves < max) {
+      var mv = pickMove(b, c, st, lm);
+      if (mv < 0) { passes++; st.ko = -1; lm = -1; } else { passes = 0; lm = mv; }
+      c = 3 - c; moves++;
+    }
+    return fastArea(b);
+  }
+
+  /* ---- モンテカルロ木探索（UCT） ---- */
+  // 手ごとの事前評価: 取る・助ける・アタリをかける、自殺的な手を避ける（短い探索を補う戦術の知識）
+  function countOf(b, c) { var n = 0; for (var i = 0; i < b.length; i++) if (b[i] === c) n++; return n; }
+  function computePriors(b, c) {
+    var n = N * N, pri = new Float32Array(n), o = 3 - c, seen = new Uint8Array(n), i, mid = (N - 1) / 2;
+    for (i = 0; i < n; i++) pri[i] = 0.03 * (1 - (Math.abs(i % N - mid) + Math.abs(((i / N) | 0) - mid)) / N);
+    var tac = [], oppCount = countOf(b, o);
+    for (i = 0; i < n; i++) {
+      if (b[i] === 0 || seen[i]) continue;
+      var libs = scanGroup(b, i), stones = Array.prototype.slice.call(grp, 0, gnum), col = b[i], ll = lastLib;
+      stones.forEach(function (s) { seen[s] = 1; });
+      if (libs === 1) tac.push([ll, col === o ? 'cap' : 'save', stones.length]);
+      else if (libs === 2) {
+        var ls = [];
+        stones.forEach(function (s) { NB[s].forEach(function (m) { if (b[m] === 0 && ls.indexOf(m) < 0) ls.push(m); }); });
+        ls.forEach(function (m) { tac.push([m, col === o ? 'atari' : 'own2', stones.length]); });
+      }
+    }
+    tac.forEach(function (t) {
+      var pt = t[0];
+      if (b[pt] !== 0) return;
+      var nb = b.slice(), r = fPlay(nb, pt, c, -1);
+      if (r === -2) return;
+      var capN = oppCount - countOf(nb, o), ownLibs = scanGroup(nb, pt), bonus = 0;
+      if (t[1] === 'cap') bonus = 0.5 * Math.min(3, t[2]);
+      else if (t[1] === 'save') bonus = capN > 0 ? 0 : (ownLibs >= 3 ? 0.6 + 0.05 * Math.min(t[2], 4) : ownLibs === 2 ? 0.3 : -0.1);
+      else if (t[1] === 'atari') bonus = ownLibs >= 2 ? 0.12 : 0;
+      else bonus = ownLibs >= 3 ? 0.04 : 0;
+      if (ownLibs === 1 && capN === 0) bonus -= 0.4;
+      pri[pt] += bonus;
+    });
+    return pri;
+  }
+  function makeNode(board, ko, toPlay, passes, lastMv, mover, mv, parent, allowPass, prior) {
+    var u = [], n = N * N, i, pri = computePriors(board, toPlay);
+    for (i = 0; i < n; i++) if (board[i] === 0 && !isOwnEye(board, i, toPlay)) u.push(i);
+    if (allowPass) u.push(-1);
+    for (i = u.length - 1; i > 0; i--) { var j = (Math.random() * (i + 1)) | 0, t = u[i]; u[i] = u[j]; u[j] = t; }
+    u.sort(function (a, b2) { return (a < 0 ? 0 : pri[a]) - (b2 < 0 ? 0 : pri[b2]); }); // 事前評価の高い手を最後に（先に試す）
+    return { board: board, ko: ko, toPlay: toPlay, passes: passes, last: lastMv, mover: mover, mv: mv, parent: parent, children: [], untried: u, pri: pri, prior: prior || 0, wins: 0, visits: 0 };
+  }
+  function expand(node) {
+    while (node.untried.length) {
+      var mv = node.untried.pop(), child;
+      if (mv === -1) {
+        child = makeNode(node.board, -1, 3 - node.toPlay, node.passes + 1, -1, node.toPlay, -1, node, true, 0);
+      } else {
+        var b = node.board.slice(), r = fPlay(b, mv, node.toPlay, node.ko);
+        if (r === -2) continue;
+        child = makeNode(b, r, 3 - node.toPlay, 0, mv, node.toPlay, mv, node, true, node.pri[mv]);
+      }
+      node.children.push(child);
+      return child;
+    }
+    return null;
+  }
+  function selectChild(node) {
+    var best = null, bv = -1e9, lg = Math.log(node.visits + 1);
+    for (var k = 0; k < node.children.length; k++) {
+      var ch = node.children[k], v = ch.wins / ch.visits + 0.6 * Math.sqrt(lg / ch.visits) + 2 * ch.prior / Math.sqrt(ch.visits + 1);
+      if (v > bv) { bv = v; best = ch; }
+    }
+    return best;
+  }
+  // 段階的に候補を広げる: 事前評価の高い手から順に、訪問が増えるほど候補を増やす
+  function canExpand(node) {
+    return node.untried.length > 0 && node.children.length < Math.max(2, Math.ceil(1.2 * Math.pow(node.visits + 1, 0.62)));
+  }
+  function iterate(root) {
+    var node = root, path = [root];
+    while (!canExpand(node) && node.children.length && node.passes < 2) { node = selectChild(node); path.push(node); }
+    if (node.passes < 2 && canExpand(node)) {
+      var ch = expand(node);
+      if (ch) { node = ch; path.push(ch); }
+    }
+    var diff = node.passes >= 2 ? fastArea(node.board) : playout(node.board, node.toPlay, node.ko, node.passes, node.last);
+    for (var k = 0; k < path.length; k++) {
+      var nd = path[k]; nd.visits++;
+      if (nd.mover) nd.wins += valueFor(diff, nd.mover);
+    }
+  }
+  function think(color, cb) {
+    var token = ++thinkToken, s = S(), cfg = LV[level], b = s.board;
+    var diffNow = fastArea(b);
+    // 相手がパスした直後に、パスして勝てるならパスする
+    if (s.passes === 1 && valueFor(diffNow, color) === 1) { setTimeout(function () { if (token === thinkToken) cb(-1); }, 400); return; }
+    var hasMove = false, i;
+    for (i = 0; i < N * N; i++) if (b[i] === 0 && !isOwnEye(b, i, color)) { hasMove = true; break; }
+    var allowPass = !hasMove || s.passes === 1;
+    var root = makeNode(b.slice(), -1, color, s.passes, -1, 0, -2, null, allowPass);
+    var t0 = performance.now();
+    function chunk() {
+      if (token !== thinkToken) return;
+      var tc = performance.now();
+      while (performance.now() - tc < 10 && root.visits < cfg.sims && performance.now() - t0 < cfg.ms) iterate(root);
+      if (root.visits >= cfg.sims || performance.now() - t0 >= cfg.ms) { pick(); return; }
+      setTimeout(chunk, 0);
+    }
+    function pick() {
+      var cs = root.children.slice().sort(function (a, c) { return c.visits - a.visits; });
+      var info = cs.length ? { wr: cs[0].wins / cs[0].visits, n: root.visits } : null;
+      if (level === 1 && cs.length > 2 && Math.random() < 0.3) { var t = cs[1 + ((Math.random() * 2) | 0)]; cs.splice(cs.indexOf(t), 1); cs.unshift(t); }
+      for (var k = 0; k < cs.length; k++) {
+        var mv = cs[k].mv;
+        if (mv === -1 || !legal(mv, color).err) { cb(mv, info); return; }
+      }
+      cb(-1, info);
+    }
+    chunk();
+  }
+
+  /* ================= ゲーム進行（盤面はここで管理） ================= */
+  function scanGroupSet(b, i) {
+    var libs = scanGroup(b, i), st = Array.prototype.slice.call(grp, 0, gnum);
+    return { stones: st, libs: libs };
+  }
+  function tryMove(b, i, c) {
+    if (b[i] !== 0) return null;
+    var nb = b.slice(), o = 3 - c, cap = [], j, m;
+    nb[i] = c;
+    for (j = 0; j < NB[i].length; j++) {
+      m = NB[i][j];
+      if (nb[m] === o && scanGroup(nb, m) === 0) {
+        for (var g = 0; g < gnum; g++) { cap.push(grp[g]); }
+        for (var h = 0; h < cap.length; h++) nb[cap[h]] = 0;
+      }
+    }
+    if (scanGroup(nb, i) === 0) return null;
+    return { board: nb, cap: cap };
+  }
+  function legal(i, c) {
+    var s = S();
+    if (s.board[i] !== 0) return { err: 'occupied' };
+    var r = tryMove(s.board, i, c);
+    if (!r) return { err: 'suicide' };
+    var k = r.board.join('');
+    for (var h = 0; h < history.length; h++) if (history[h].k === k) return { err: 'ko' };
+    r.k = k;
+    return { r: r };
+  }
+  function count(b, c) { var n = 0; for (var i = 0; i < b.length; i++) if (b[i] === c) n++; return n; }
+
+  /* 空き領域の持ち主。strict=true は終局時の自動埋め、false は「地になりそう」な弱発光 */
+  function territory(b, strict) {
+    var own = new Int8Array(N * N), seen = new Uint8Array(N * N), i;
+    for (i = 0; i < N * N; i++) {
+      if (b[i] !== 0 || seen[i]) continue;
+      var st = [i], reg = [], bs = new Set(), t1 = false, t2 = false;
+      seen[i] = 1;
+      while (st.length) {
+        var k = st.pop(); reg.push(k);
+        NB[k].forEach(function (m) {
+          if (b[m] === 0) { if (!seen[m]) { seen[m] = 1; st.push(m); } }
+          else { bs.add(m); if (b[m] === 1) t1 = true; else t2 = true; }
+        });
+      }
+      var o = t1 && !t2 ? 1 : t2 && !t1 ? 2 : 0;
+      if (o && (strict || reg.length <= 1.5 * bs.size + 1)) reg.forEach(function (k2) { own[k2] = o; });
+    }
+    return own;
+  }
+
+  function initGlow() {
+    cellG = []; slopeG = []; placedAt = [];
+    for (var i = 0; i < N * N; i++) {
+      cellG.push({ c: 1, v: 0, f: 0, t: 0 });
+      placedAt.push(-1e9);
+      for (var d = 0; d < 4; d++) slopeG.push({ c: 1, v: 0, f: 0, t: 0 });
+    }
+  }
+  function retarget() {
+    var b = S().board, terr = territory(b, false), i, d;
+    atariColors = {};
+    var seen = new Set();
+    for (i = 0; i < N * N; i++) {
+      var c = b[i], cg = cellG[i], nt = 0, linked = false;
+      for (d = 0; d < 4; d++) {
+        var n = nbd[i][d], sg = slopeG[i * 4 + d], tt = 0;
+        if (c && n >= 0 && b[n] === c) { tt = 1; linked = true; sg.c = c; }
+        if (tt > sg.t + .15) sg.f = Math.max(sg.f, 1);
+        sg.t = tt;
+      }
+      if (c) { nt = linked ? L_LINK : L_PIECE; cg.c = c; }
+      else if (terr[i]) { nt = L_TERR; cg.c = terr[i]; }
+      if (nt > cg.t + .15) cg.f = Math.max(cg.f, c ? .9 : .4);
+      cg.t = nt;
+      if (c && !seen.has(i)) {
+        var g = scanGroupSet(b, i);
+        g.stones.forEach(function (s) { seen.add(s); });
+        if (g.libs === 1) atariColors[c] = true;
+      }
+    }
+  }
+  function snapGlow() {
+    retarget();
+    cellG.forEach(function (g) { g.v = g.t; g.f = 0; });
+    slopeG.forEach(function (g) { g.v = g.t; g.f = 0; });
+  }
+  function stepAnim(dt) {
+    var up = 1 - Math.exp(-12 * dt), dn = 1 - Math.exp(-6 * dt), fd = Math.exp(-4.5 * dt);
+    cellG.forEach(function (g) { g.v += (g.t - g.v) * (g.t > g.v ? up : dn); g.f *= fd; });
+    slopeG.forEach(function (g) { g.v += (g.t - g.v) * (g.t > g.v ? up : dn); g.f *= fd; });
+  }
+
+  function setStatus(t, cls) { var s = el('status'); s.textContent = t; s.className = cls || ''; }
+  function refresh() {
+    var s = S();
+    el('cg').textContent = count(s.board, 1);
+    el('cr').textContent = count(s.board, 2);
+    el('kg').textContent = s.caps[1];
+    el('kr').textContent = s.caps[2];
+    el('komiv').textContent = komi === 0 ? '無し' : komi;
+    el('pg').classList.toggle('active', !over && s.turn === 1);
+    el('pr').classList.toggle('active', !over && s.turn === 2);
+    var human = !over && (!vsAI || s.turn === 1);
+    el('bpass').disabled = !human;
+    el('bresign').disabled = !human;
+    el('bundo').disabled = over || history.length < 2 || (vsAI && s.turn === 2);
+    el('lv').disabled = !vsAI;
+    el('bres').hidden = !(over && resShownOnce && el('result').hidden);
+  }
+  function newGame() {
+    thinkToken++; clearTimeout(aiTimer);
+    build(); initGlow();
+    var b = new Int8Array(N * N);
+    history = [{ board: b, turn: 1, caps: { 1: 0, 2: 0 }, passes: 0, last: -1, k: b.join('') }];
+    over = false; fx = []; hover = -1; busyUntil = 0; lowCount = 0;
+    disarm(); hideResult(true);
+    layout(); snapGlow(); refresh();
+    setStatus('緑の番です。凹んだマスをタップしてクリスタルを嵌めます。');
+  }
+  function turnLine(n) {
+    var s = S(), who = NAME[s.turn] + (vsAI && s.turn === 2 ? '（COM）' : '');
+    var t = n > 0 ? n + '個のクリスタルが砕け散りました。' : '';
+    t += who + 'の番です。';
+    if (atariColors[s.turn]) t += '（アタリになっている並びがあります）';
+    return t;
+  }
+  function busy() { return performance.now() < busyUntil; }
+
+  function play(i, c) {
+    if (over) return false;
+    var res = legal(i, c);
+    if (res.err) {
+      setStatus(res.err === 'occupied' ? 'そのマスにはすでにクリスタルがあります。'
+        : res.err === 'suicide' ? 'そこに嵌めると自分のクリスタルの呼吸点がなくなります（自殺手）。'
+        : 'コウです。同じ局面に戻る手は打てません。別のマスを選んでください。', 'warn');
+      return false;
+    }
+    var s = S(), caps = { 1: s.caps[1], 2: s.caps[2] };
+    caps[c] += res.r.cap.length;
+    spawnChain(res.r.cap, s.board, i);
+    placedAt[i] = performance.now();
+    history.push({ board: res.r.board, turn: 3 - c, caps: caps, passes: 0, last: i, k: res.r.k });
+    retarget(); refresh();
+    var line = turnLine(res.r.cap.length);
+    setStatus(vsAI && S().turn === 2 ? line.replace('の番です。', 'が考え中…').replace('（COM）が', '（COM）が') : line);
+    maybeAI();
+    return true;
+  }
+  function doPass() {
+    if (over) return;
+    var s = S(), c = s.turn, passes = s.passes + 1;
+    history.push({ board: s.board, turn: 3 - c, caps: { 1: s.caps[1], 2: s.caps[2] }, passes: passes, last: -1, k: s.k + '|p' + history.length });
+    if (passes >= 2) { finish(); return; }
+    retarget(); refresh();
+    setStatus(NAME[c] + 'がパスしました。' + NAME[3 - c] + 'の番です。');
+    maybeAI();
+  }
+  // 終局: 片方だけに囲まれた空きマスを、その色のクリスタルで順に埋める
+  function finish() {
+    var s = S(), own = territory(s.board, true), nb = s.board.slice(), order = [], i;
+    for (i = 0; i < N * N; i++) if (own[i]) { nb[i] = own[i]; order.push(i); }
+    var now = performance.now();
+    order.forEach(function (idx, k) { placedAt[idx] = now + 250 + k * 90; });
+    history.push({ board: nb, turn: s.turn, caps: { 1: s.caps[1], 2: s.caps[2] }, passes: 2, last: -1, k: nb.join('') + '|end' });
+    over = true; busyUntil = now + 250 + order.length * 90 + 300;
+    retarget(); refresh();
+    var g = count(nb, 1), r = count(nb, 2), diff = g - (r + komi);
+    var res = diff > 0 ? '緑の勝ち（' + diff + '個差）' : diff < 0 ? '赤の勝ち（' + (-diff) + '個差）' : '持碁（引き分け）';
+    setStatus('終局。' + (order.length ? '自陣の地をクリスタルで埋めました。' : '') + '緑 ' + g + '個、赤 ' + r + '個' + (komi ? ' + コミ' + komi : '') + '。' + res, 'end');
+    scheduleResult({ winner: diff > 0 ? 1 : diff < 0 ? 2 : 0, g: g, r: r, diff: diff });
+  }
+
+  /* ---- 投了と結果表示 ---- */
+  function resign(c) {
+    if (over) return;
+    thinkToken++; clearTimeout(aiTimer);
+    over = true; disarm();
+    var s = S();
+    refresh();
+    setStatus(NAME[c] + (vsAI && c === 2 ? '（COM）' : '') + 'が投了しました。' + NAME[3 - c] + 'の勝ちです。', 'end');
+    scheduleResult({ winner: 3 - c, resign: c, g: count(s.board, 1), r: count(s.board, 2), diff: 0 });
+  }
+  // 中盤以降で、探索しても勝ち筋が見えない状態が続いたら投了する
+  function shouldResign(info) {
+    var s = S(), stones = count(s.board, 1) + count(s.board, 2);
+    var th = { 1: 0.05, 2: 0.07, 3: 0.08 }[level];
+    var behind = valueFor(fastArea(s.board), 2) === 0;    if (stones >= N * N * 0.35 && behind && info && info.n >= 100 && info.wr < th) lowCount++; else lowCount = 0;
+    return lowCount >= 2;
+  }
+  function scheduleResult(info) {
+    clearTimeout(resTimer);
+    resTimer = setTimeout(function () { showResult(info); }, Math.max(300, busyUntil - performance.now()) + 500);
+  }
+  function showResult(info) {
+    var w = info.winner, title, sub;
+    if (w === 0) title = '引き分け';
+    else if (vsAI) title = w === 1 ? '勝利！' : '敗北…';
+    else title = NAME[w] + 'の勝利';
+    if (info.resign) sub = NAME[info.resign] + (vsAI && info.resign === 2 ? '（COM）' : '') + 'が投了しました';
+    else if (w === 0) sub = '持碁（同点）';
+    else sub = NAME[w] + 'の勝ち ／ ' + Math.abs(info.diff) + ' 個差';
+    el('rpanel').className = 'rpanel ' + (w === 1 ? 'wg' : w === 2 ? 'wr' : 'wd');
+    el('rtitle').textContent = title; el('rsub').textContent = sub;
+    el('rgn').textContent = info.g; el('rgd').textContent = info.resign === 1 ? '投了' : '';
+    var showKomi = !info.resign && komi > 0;
+    el('rrn').textContent = showKomi ? info.r + komi : info.r;
+    el('rrd').textContent = info.resign === 2 ? '投了' : showKomi ? '(' + info.r + ' + コミ' + komi + ')' : '';
+    el('rbg').className = 'rbox g' + (w === 1 ? ' win' : '');
+    el('rbr').className = 'rbox r' + (w === 2 ? ' win' : '');
+    el('result').hidden = false; resShownOnce = true;
+    refresh();
+  }
+  function hideResult(reset) {
+    el('result').hidden = true;
+    if (reset) { clearTimeout(resTimer); resShownOnce = false; }
+    refresh();
+  }
+  function disarm() {
+    clearTimeout(armTimer);
+    var b = el('bresign'); b.classList.remove('armed'); b.textContent = '投了';
+  }
+  function maybeAI() {
+    if (!vsAI || over || S().turn !== 2) return;
+    clearTimeout(aiTimer);
+    var wait = Math.max(500, busyUntil - performance.now() + 250);
+    aiTimer = setTimeout(function () {
+      if (over || S().turn !== 2) return;
+      think(2, function (mv, info) {
+        if (over || S().turn !== 2) return;
+        if (shouldResign(info)) { resign(2); return; }
+        if (mv < 0) doPass(); else play(mv, 2);
+      });
+    }, wait);
+  }
+
+  /* ================= 幾何 ================= */
+  function layout() {
+    var w = canvas.parentElement.clientWidth || 360;
+    dpr = window.devicePixelRatio || 1;
+    W = w;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(w * dpr);
+    bgc.width = canvas.width; bgc.height = canvas.height;
+    var f = W * 0.045, p = (W - 2 * f) / N, w2 = p * 0.035, s = p - 2 * w2, t = p * 0.07, q = s - 2 * t, gap = p * 0.008;
+    G = { f: f, p: p, w: w2, s: s, t: t, q: q, gap: gap, ps: q - 2 * gap };
+    buildStatic(); buildSprites();
+  }
+  function cellBox(i) {
+    var x = i % N, y = (i / N) | 0;
+    var x0 = G.f + x * G.p, y0 = G.f + y * G.p;
+    var xo = x0 + G.w, yo = y0 + G.w;
+    return { xo: xo, yo: yo, px: xo + G.t, py: yo + G.t, bx: xo + G.t + G.gap, by: yo + G.t + G.gap, cx: x0 + G.p / 2, cy: y0 + G.p / 2 };
+  }
+  function slopePts(d, xo, yo, s, t) {
+    var a = [xo, yo], b = [xo + s, yo], c = [xo + s, yo + s], e = [xo, yo + s];
+    var a2 = [xo + t, yo + t], b2 = [xo + s - t, yo + t], c2 = [xo + s - t, yo + s - t], e2 = [xo + t, yo + s - t];
+    if (d === 0) return [a, b, b2, a2];
+    if (d === 1) return [b, c, c2, b2];
+    if (d === 2) return [c, e, e2, c2];
+    return [e, a, a2, e2];
+  }
+  function path(c, pts) {
+    c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+    for (var k = 1; k < pts.length; k++) c.lineTo(pts[k][0], pts[k][1]);
+    c.closePath();
+  }
+
+  /* ================= 銀色アルミ削り出しの盤（静的に描いて保存） ================= */
+  function buildStatic() {
+    var c = bgc.getContext('2d'), y;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, W);
+    var r = W * 0.025;
+    function rr(x, yy, w, h, rad) { c.beginPath(); if (c.roundRect) c.roundRect(x, yy, w, h, rad); else c.rect(x, yy, w, h); }
+    var g = c.createLinearGradient(0, 0, W, W);
+    g.addColorStop(0, '#eceff2'); g.addColorStop(.22, '#b7bcc3'); g.addColorStop(.48, '#dfe2e6'); g.addColorStop(.74, '#a6abb3'); g.addColorStop(1, '#cdd1d6');
+    c.fillStyle = g; rr(0, 0, W, W, r); c.fill();
+    c.save(); rr(0, 0, W, W, r); c.clip();
+    for (y = 0; y < W; y += 1) {
+      var v = rnd(y, 3);
+      c.fillStyle = v > .5 ? 'rgba(255,255,255,' + (0.03 + v * .09) + ')' : 'rgba(40,46,54,' + (0.02 + (1 - v) * .06) + ')';
+      c.fillRect(0, y, W, 1);
+    }
+    var sh = c.createLinearGradient(0, W * .1, W, W * .9);
+    sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(.3, 'rgba(255,255,255,.38)'); sh.addColorStop(.42, 'rgba(255,255,255,0)');
+    sh.addColorStop(.68, 'rgba(255,255,255,0)'); sh.addColorStop(.8, 'rgba(255,255,255,.22)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = sh; c.fillRect(0, 0, W, W);
+    c.restore();
+    c.lineWidth = 1.5;
+    c.strokeStyle = 'rgba(255,255,255,.95)';
+    c.beginPath(); c.moveTo(1, W - r); c.lineTo(1, r); c.quadraticCurveTo(1, 1, r, 1); c.lineTo(W - r, 1); c.stroke();
+    c.strokeStyle = 'rgba(52,58,66,.85)';
+    c.beginPath(); c.moveTo(W - 1, r); c.lineTo(W - 1, W - r); c.quadraticCurveTo(W - 1, W - 1, W - r, W - 1); c.lineTo(r, W - 1); c.stroke();
+
+    // 一段下がった受け皿（面取り付き）
+    var f = G.f * 0.55, tw = W - 2 * f;
+    var tg = c.createLinearGradient(f, f, f + tw, f + tw);
+    tg.addColorStop(0, '#a9aeb5'); tg.addColorStop(.5, '#cdd1d6'); tg.addColorStop(1, '#b4b9c0');
+    c.fillStyle = tg; c.fillRect(f, f, tw, tw);
+    c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(f, f, tw, 2); c.fillRect(f, f, 2, tw);
+    c.fillStyle = 'rgba(255,255,255,.85)'; c.fillRect(f, f + tw - 1.5, tw, 1.5); c.fillRect(f + tw - 1.5, f, 1.5, tw);
+    var ts = c.createLinearGradient(f, f, f, f + G.f);
+    ts.addColorStop(0, 'rgba(0,0,0,.28)'); ts.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = ts; c.fillRect(f, f, tw, G.f);
+    var ls = c.createLinearGradient(f, 0, f + G.f, 0);
+    ls.addColorStop(0, 'rgba(0,0,0,.22)'); ls.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = ls; c.fillRect(f, f, G.f, tw);
+
+    for (var i = 0; i < N * N; i++) {
+      var b = cellBox(i), d;
+      for (d = 0; d < 4; d++) {
+        var pts = slopePts(d, b.xo, b.yo, G.s, G.t), lit = d === 1 || d === 2;
+        var o = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2], n = [(pts[2][0] + pts[3][0]) / 2, (pts[2][1] + pts[3][1]) / 2];
+        var gr = c.createLinearGradient(o[0], o[1], n[0], n[1]);
+        gr.addColorStop(0, lit ? '#d4dae0' : '#8a929b'); gr.addColorStop(1, lit ? '#a0a8b1' : '#5d656e');
+        c.fillStyle = gr; path(c, pts); c.fill();
+        c.strokeStyle = 'rgba(30,36,44,.55)'; c.lineWidth = 1; c.stroke();
+      }
+      c.lineWidth = 1;
+      c.strokeStyle = 'rgba(255,255,255,.9)';
+      c.beginPath(); c.moveTo(b.xo + G.s, b.yo); c.lineTo(b.xo + G.s, b.yo + G.s); c.lineTo(b.xo, b.yo + G.s); c.stroke();
+      c.strokeStyle = 'rgba(30,36,44,.65)';
+      c.beginPath(); c.moveTo(b.xo, b.yo + G.s); c.lineTo(b.xo, b.yo); c.lineTo(b.xo + G.s, b.yo); c.stroke();
+      c.fillStyle = '#14181d'; c.fillRect(b.px, b.py, G.q, G.q);
+      var h = G.q * 0.3;
+      var gt = c.createLinearGradient(0, b.py, 0, b.py + h);
+      gt.addColorStop(0, 'rgba(0,0,0,.9)'); gt.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = gt; c.fillRect(b.px, b.py, G.q, h);
+      var gl = c.createLinearGradient(b.px, 0, b.px + h, 0);
+      gl.addColorStop(0, 'rgba(0,0,0,.75)'); gl.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = gl; c.fillRect(b.px, b.py, h, G.q);
+      c.strokeStyle = 'rgba(255,255,255,.14)'; c.strokeRect(b.px + .5, b.py + .5, G.q - 1, G.q - 1);
+    }
+  }
+
+  /* ================= クリスタル（エメラルドカットの宝石） ================= */
+  function octa(s, ch) { return [[ch, 0], [s - ch, 0], [s, ch], [s, s - ch], [s - ch, s], [ch, s], [0, s - ch], [0, ch]]; }
+  function tableOcta(s, ri, tc) { return [[ri + tc, ri], [s - ri - tc, ri], [s - ri, ri + tc], [s - ri, s - ri - tc], [s - ri - tc, s - ri], [ri + tc, s - ri], [ri, s - ri - tc], [ri, ri + tc]]; }
+  var LF = [.82, .6, .32, .08, .18, .5, .72, 1]; // 面ごとの明るさ（光は左上）
+  function renderGem(c2, S0, cl) {
+    var O = octa(S0, S0 * .16), T = tableOcta(S0, S0 * .15, S0 * .1), k, k2, lw = Math.max(1, S0 * .014);
+    path(c2, O); c2.fillStyle = rgba(mix(cl.d, cl.b, .5), .6); c2.fill();
+    for (k = 0; k < 8; k++) {
+      k2 = (k + 1) % 8;
+      var om = [(O[k][0] + O[k2][0]) / 2, (O[k][1] + O[k2][1]) / 2], im = [(T[k][0] + T[k2][0]) / 2, (T[k][1] + T[k2][1]) / 2];
+      var g = c2.createLinearGradient(om[0], om[1], im[0], im[1]);
+      g.addColorStop(0, rgba(mix(cl.d, cl.l, LF[k]), .94));
+      g.addColorStop(.7, rgba(mix(cl.d, cl.b, .25 + LF[k] * .6), .86));
+      g.addColorStop(1, rgba(mix(cl.b, cl.l, .35 * (1 - LF[k]) + .1), .8)); // 内側の縁は内部反射で明るい
+      path(c2, [O[k], O[k2], T[k2], T[k]]); c2.fillStyle = g; c2.fill();
+    }
+    var tg = c2.createLinearGradient(S0 * .15, S0 * .15, S0 * .85, S0 * .85);
+    tg.addColorStop(0, rgba(mix(cl.b, cl.l, .4), .62)); tg.addColorStop(.5, rgba(cl.b, .5)); tg.addColorStop(1, rgba(mix(cl.b, cl.d, .3), .72));
+    path(c2, T); c2.fillStyle = tg; c2.fill();
+    c2.save(); path(c2, T); c2.clip();
+    var cg = c2.createRadialGradient(S0 * .72, S0 * .76, 0, S0 * .72, S0 * .76, S0 * .5);
+    cg.addColorStop(0, rgba(cl.l, .55)); cg.addColorStop(1, rgba(cl.l, 0));
+    c2.fillStyle = cg; c2.fillRect(0, 0, S0, S0);
+    c2.fillStyle = 'rgba(255,255,255,.34)';
+    c2.beginPath(); c2.moveTo(S0 * .2, S0 * .62); c2.lineTo(S0 * .62, S0 * .2); c2.lineTo(S0 * .78, S0 * .2); c2.lineTo(S0 * .2, S0 * .78); c2.closePath(); c2.fill();
+    c2.fillStyle = 'rgba(255,255,255,.14)';
+    c2.beginPath(); c2.moveTo(S0 * .3, S0 * .86); c2.lineTo(S0 * .86, S0 * .3); c2.lineTo(S0 * .9, S0 * .3); c2.lineTo(S0 * .3, S0 * .9); c2.closePath(); c2.fill();
+    c2.restore();
+    c2.lineWidth = lw;
+    for (k = 0; k < 8; k++) {
+      k2 = (k + 1) % 8;
+      path(c2, [O[k], O[k2], T[k2], T[k]]);
+      c2.strokeStyle = 'rgba(255,255,255,.34)'; c2.stroke();
+    }
+    path(c2, T); c2.strokeStyle = 'rgba(255,255,255,.5)'; c2.stroke();
+    path(c2, T); c2.save(); c2.translate(lw, lw); c2.strokeStyle = 'rgba(0,0,0,.18)'; c2.stroke(); c2.restore();
+    c2.lineWidth = lw * 1.6;
+    c2.strokeStyle = 'rgba(255,255,255,.9)';
+    c2.beginPath(); c2.moveTo(O[6][0], O[6][1]); c2.lineTo(O[7][0], O[7][1]); c2.lineTo(O[0][0], O[0][1]); c2.stroke();
+    c2.strokeStyle = rgba(cl.d, .75);
+    c2.beginPath(); c2.moveTo(O[2][0], O[2][1]); c2.lineTo(O[3][0], O[3][1]); c2.lineTo(O[4][0], O[4][1]); c2.stroke();
+    // 左上の鋭い反射光
+    var sx = S0 * .2, sy = S0 * .2, sl = S0 * .12;
+    c2.strokeStyle = 'rgba(255,255,255,.95)'; c2.lineWidth = Math.max(1, S0 * .02); c2.lineCap = 'round';
+    c2.beginPath(); c2.moveTo(sx - sl, sy); c2.lineTo(sx + sl, sy); c2.moveTo(sx, sy - sl); c2.lineTo(sx, sy + sl); c2.stroke();
+    c2.fillStyle = '#fff'; c2.beginPath(); c2.arc(sx, sy, S0 * .028, 0, 7); c2.fill();
+  }
+  function buildSprites() {
+    [1, 2].forEach(function (c) {
+      var cv = document.createElement('canvas'), n = Math.max(8, Math.ceil(G.ps * dpr));
+      cv.width = n; cv.height = n;
+      var c2 = cv.getContext('2d'); c2.scale(n / G.ps, n / G.ps);
+      renderGem(c2, G.ps, COLS[c]);
+      sprites[c] = cv;
+    });
+  }
+  function drawGem(x, y, s, c, a, white, tm, seed) {
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.drawImage(sprites[c], x, y, s, s);
+    var T = tableOcta(s, s * .15, s * .1).map(function (p) { return [p[0] + x, p[1] + y]; });
+    var ph = (tm * 0.00042 + seed * .61) % 5;
+    if (ph < 1 && !reduce) {
+      ctx.save(); path(ctx, T); ctx.clip();
+      var ax = x + s * (ph * 1.9 - .5), ay = y + s * .15;
+      var gg = ctx.createLinearGradient(ax, ay, ax + s * .26, ay + s * .16);
+      gg.addColorStop(0, 'rgba(255,255,255,0)'); gg.addColorStop(.5, 'rgba(255,255,255,' + (.5 * Math.sin(Math.PI * ph)) + ')'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gg; ctx.fillRect(x, y, s, s);
+      ctx.restore();
+    }
+    if (white > 0) {
+      path(ctx, octa(s, s * .16).map(function (p) { return [p[0] + x, p[1] + y]; }));
+      ctx.fillStyle = 'rgba(255,255,255,' + (.45 * white) + ')'; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ================= 取る演出（全体にヒビ→時間差で連鎖して砕ける） ================= */
+  function rayBox(ix, iy, a) {
+    var dx = Math.cos(a), dy = Math.sin(a);
+    var tx = dx > 1e-6 ? (.5 - ix) / dx : dx < -1e-6 ? (-.5 - ix) / dx : 1e9;
+    var ty = dy > 1e-6 ? (.5 - iy) / dy : dy < -1e-6 ? (-.5 - iy) / dy : 1e9;
+    return Math.min(tx, ty);
+  }
+  function buildShatter(K) {
+    var TAU = Math.PI * 2, base = Math.random() * TAU;
+    var ix = (Math.random() - .5) * .28, iy = (Math.random() - .5) * .28, angs = [], k;
+    for (k = 0; k < K; k++) angs.push(((base + (k / K) * TAU + (Math.random() - .5) * .5) % TAU + TAU) % TAU);
+    angs.sort(function (a, b) { return a - b; });
+    var rays = [], bp = [];
+    angs.forEach(function (a) {
+      var len = rayBox(ix, iy, a), dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx, pts = [[ix, iy]];
+      for (var j = 1; j <= 4; j++) {
+        var fr = j / 4, jit = j < 4 ? (Math.random() - .5) * .07 : 0;
+        pts.push([ix + dx * len * fr + px * jit, iy + dy * len * fr + py * jit]);
+      }
+      rays.push({ pts: pts, delay: Math.random() * .25 });
+      bp.push([ix + dx * len, iy + dy * len]);
+      if (Math.random() < .45) {
+        var q0 = pts[2], ba = a + (Math.random() < .5 ? -1 : 1) * (.5 + Math.random() * .4), bl = .12 + Math.random() * .14;
+        rays.push({ pts: [q0, [q0[0] + Math.cos(ba) * bl * .5, q0[1] + Math.sin(ba) * bl * .5 + (Math.random() - .5) * .03], [q0[0] + Math.cos(ba) * bl, q0[1] + Math.sin(ba) * bl]], delay: .2 + Math.random() * .2 });
+      }
+    });
+    var corners = [[-.5, -.5], [.5, -.5], [.5, .5], [-.5, .5]].map(function (cn) {
+      return { p: cn, a: (Math.atan2(cn[1] - iy, cn[0] - ix) + TAU) % TAU };
+    });
+    var shards = [];
+    for (var k2 = 0; k2 < K; k2++) {
+      var a0 = angs[k2], a1 = k2 === K - 1 ? angs[0] + TAU : angs[k2 + 1], span = a1 - a0;
+      var b0 = bp[k2], b1 = bp[(k2 + 1) % K];
+      var cs = corners.map(function (cn) { return { p: cn.p, r: ((cn.a - a0) % TAU + TAU) % TAU }; })
+        .filter(function (cn) { return cn.r > 1e-4 && cn.r < span; })
+        .sort(function (a, b) { return a.r - b.r; }).map(function (cn) { return cn.p; });
+      var m0 = [ix + (b0[0] - ix) * .45, iy + (b0[1] - iy) * .45], m1 = [ix + (b1[0] - ix) * .45, iy + (b1[1] - iy) * .45];
+      var outer = [m0, b0].concat(cs, [b1, m1]), inner = [[ix, iy], m0, m1];
+      [[outer, 1], [inner, .55]].forEach(function (pair) {
+        var pts = pair[0], cx = 0, cy = 0;
+        pts.forEach(function (p) { cx += p[0]; cy += p[1]; });
+        cx /= pts.length; cy /= pts.length;
+        var am = a0 + span / 2 + (Math.random() - .5) * .5;
+        shards.push({
+          pts: pts.map(function (p) { return [p[0] - cx, p[1] - cy]; }), cx: cx, cy: cy,
+          dx: Math.cos(am), dy: Math.sin(am),
+          sp: (pair[1] === 1 ? 9 + Math.random() * 8 : 5 + Math.random() * 6) * (reduce ? .6 : 1),
+          om: (Math.random() < .5 ? -1 : 1) * (5 + Math.random() * 11),
+          life: .6 + Math.random() * .35
+        });
+      });
+    }
+    var spl = [], ns = reduce ? 8 : 26;
+    for (var s = 0; s < ns; s++) {
+      var sa = Math.random() * TAU;
+      spl.push({ dx: Math.cos(sa), dy: Math.sin(sa), sp: 12 + Math.random() * 16, len: .12 + Math.random() * .14, life: .25 + Math.random() * .4, w: Math.random() < .4 });
+    }
+    return { rays: rays, shards: shards, spl: spl };
+  }
+  function spawnChain(cap, oldBoard, from) {
+    if (!cap.length) return;
+    var fx0 = from % N, fy0 = (from / N) | 0, now = performance.now(), crackT = reduce ? .12 : .3;
+    var order = cap.slice().sort(function (a, b) {
+      return (Math.abs(a % N - fx0) + Math.abs(((a / N) | 0) - fy0)) - (Math.abs(b % N - fx0) + Math.abs(((b / N) | 0) - fy0));
+    });
+    var step = clamp(.9 / order.length, .06, .14);
+    order.forEach(function (idx, k) {
+      var sh = buildShatter(reduce ? 5 : 9);
+      fx.push({ i: idx, c: oldBoard[idx], start: now, crackT: crackT, shatterAt: crackT + k * step, rays: sh.rays, shards: sh.shards, spl: sh.spl });
+      cellG[idx].v = 0; cellG[idx].f = 0;
+      for (var d = 0; d < 4; d++) { var sg = slopeG[idx * 4 + d]; if (sg.v > .2) sg.f = 1.2; }
+      if (!reduce && k < 4) {
+        setTimeout(function () { shake.amp = G.p * (k === 0 ? .06 : .035); shake.start = performance.now(); }, (crackT + k * step) * 1000);
+      }
+    });
+    busyUntil = now + (crackT + (order.length - 1) * step + .5) * 1000;
+  }
+
+  function drawFx(now) {
+    var S0 = G.ps;
+    fx = fx.filter(function (f) { return (now - f.start) / 1000 < f.shatterAt + 1.2; });
+    fx.forEach(function (f) {
+      var t = (now - f.start) / 1000, b = cellBox(f.i), cl = COLS[f.c], gc = cl.glow;
+      var cx = b.cx, cy = b.cy, lw = Math.max(1, S0 * .022);
+      if (t < f.shatterAt) {
+        var r = clamp(t / f.crackT, 0, 1), tr = clamp(t / f.shatterAt, 0, 1);
+        var jx = (Math.random() - .5) * 2 * tr * 1.8, jy = (Math.random() - .5) * 2 * tr * 1.8;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = rgba(gc, .6); ctx.fillRect(b.px, b.py, G.q, G.q);
+        ctx.globalCompositeOperation = 'source-over';
+        drawGem(b.bx + jx, b.by + jy, S0, f.c, 1, tr * .5, now, f.i);
+        ctx.save(); ctx.translate(cx + jx, cy + jy); ctx.lineJoin = 'round';
+        f.rays.forEach(function (ry) {
+          var pr = clamp((r - ry.delay) / .55, 0, 1);
+          if (pr <= 0) return;
+          var pts = ry.pts, tot = 0, segs = [], k;
+          for (k = 1; k < pts.length; k++) { var l = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); segs.push(l); tot += l; }
+          var rem = tot * pr;
+          ctx.beginPath(); ctx.moveTo(pts[0][0] * S0, pts[0][1] * S0);
+          for (var m = 1; m < pts.length && rem > 0; m++) {
+            var l2 = segs[m - 1], u = Math.min(1, rem / l2);
+            ctx.lineTo((pts[m - 1][0] + (pts[m][0] - pts[m - 1][0]) * u) * S0, (pts[m - 1][1] + (pts[m][1] - pts[m - 1][1]) * u) * S0);
+            rem -= l2;
+          }
+          ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = lw * 2.2; ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = lw; ctx.stroke();
+        });
+        ctx.restore();
+        return;
+      }
+      var ts = t - f.shatterAt;
+      if (ts < .38) {
+        var k2 = ts / .38, rad = S0 * (.6 + k2 * 1.9);
+        ctx.globalCompositeOperation = 'lighter';
+        var rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        rg.addColorStop(0, rgba([255, 255, 255], .55 * (1 - k2) * (1 - k2)));
+        rg.addColorStop(.4, rgba(gc, .45 * (1 - k2) * (1 - k2)));
+        rg.addColorStop(1, rgba(gc, 0));
+        ctx.fillStyle = rg; ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+        var rs = S0 * (1 + k2 * 1.7);
+        ctx.strokeStyle = rgba([255, 255, 255], .75 * (1 - k2)); ctx.lineWidth = Math.max(1, S0 * .05 * (1 - k2));
+        ctx.strokeRect(cx - rs / 2, cy - rs / 2, rs, rs);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      f.shards.forEach(function (sh) {
+        var e = (1 - Math.exp(-5 * ts)) / 5, al = Math.pow(Math.max(0, 1 - ts / sh.life), .8);
+        if (al <= 0) return;
+        var sc = 1 + .35 * Math.min(1, ts / .7);
+        ctx.save();
+        ctx.translate(cx + (sh.cx + sh.dx * sh.sp * e) * S0, cy + (sh.cy + sh.dy * sh.sp * e) * S0);
+        ctx.rotate(sh.om * ts); ctx.scale(sc, sc);
+        ctx.beginPath();
+        sh.pts.forEach(function (p, k) { if (k) ctx.lineTo(p[0] * S0, p[1] * S0); else ctx.moveTo(p[0] * S0, p[1] * S0); });
+        ctx.closePath();
+        var g = ctx.createLinearGradient(-S0 * .3, -S0 * .3, S0 * .3, S0 * .3);
+        g.addColorStop(0, rgba(cl.l, .85 * al)); g.addColorStop(.45, rgba(cl.b, .7 * al)); g.addColorStop(1, rgba(cl.d, .6 * al));
+        ctx.fillStyle = g; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,' + (.9 * al) + ')'; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.stroke();
+        ctx.restore();
+      });
+      ctx.globalCompositeOperation = 'lighter';
+      f.spl.forEach(function (sp) {
+        if (ts > sp.life) return;
+        var e = (1 - Math.exp(-4 * ts)) / 4, al = 1 - ts / sp.life;
+        var x = cx + sp.dx * sp.sp * e * S0, y = cy + sp.dy * sp.sp * e * S0;
+        ctx.strokeStyle = sp.w ? rgba([255, 255, 255], .9 * al) : rgba(gc, .9 * al);
+        ctx.lineWidth = Math.max(1, S0 * .028);
+        ctx.beginPath(); ctx.moveTo(x - sp.dx * sp.len * S0, y - sp.dy * sp.len * S0); ctx.lineTo(x, y); ctx.stroke();
+      });
+      ctx.globalCompositeOperation = 'source-over';
+    });
+  }
+
+  /* ================= 描画ループ ================= */
+  function frame(now) {
+    var dt = Math.min(.05, Math.max(0, (now - last) / 1000)); last = now;
+    stepAnim(dt);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, W);
+    var ox = 0, oy = 0;
+    if (shake.amp > 0 && now >= shake.start) {
+      var a = shake.amp * Math.exp(-((now - shake.start) / 1000) * 10);
+      if (a < .3) shake.amp = 0; else { ox = (Math.random() * 2 - 1) * a; oy = (Math.random() * 2 - 1) * a; }
+    }
+    ctx.translate(ox, oy);
+    ctx.drawImage(bgc, 0, 0, W, W);
+    var s = S(), b = s.board, i, d;
+
+    for (i = 0; i < N * N; i++) {
+      var cg = cellG[i], bx = cellBox(i), I = cg.v + cg.f * .8;
+      if (I > .01) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = rgba(COLS[cg.c].glow, .62 * Math.min(I, 1.5)); ctx.fillRect(bx.px, bx.py, G.q, G.q);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      for (d = 0; d < 4; d++) {
+        var sg = slopeG[i * 4 + d], J = sg.v + sg.f * .9;
+        if (J < .01) continue;
+        var pts = slopePts(d, bx.xo, bx.yo, G.s, G.t), gl = COLS[sg.c].glow, Lc = Math.min(1, J);
+        var o = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2], n = [(pts[2][0] + pts[3][0]) / 2, (pts[2][1] + pts[3][1]) / 2];
+        var gr = ctx.createLinearGradient(o[0], o[1], n[0], n[1]);
+        gr.addColorStop(0, rgba(gl, .97 * Lc)); gr.addColorStop(1, rgba(mix(gl, [255, 255, 255], .4), .9 * Lc));
+        ctx.save();
+        ctx.shadowColor = rgba(gl, .8 * Lc); ctx.shadowBlur = G.p * .15 * Math.min(J, 1.4);
+        ctx.fillStyle = gr; path(ctx, pts); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    var now2 = performance.now();
+    for (i = 0; i < N * N; i++) {
+      if (!b[i]) continue;
+      var pb = cellBox(i), age = now2 - placedAt[i], sz = G.ps, px = pb.bx, py = pb.by, al = 1;
+      if (age < 0) continue;
+      if (age < 200) {
+        var e = 1 - Math.pow(1 - age / 200, 3), sc = 1 + .22 * (1 - e);
+        sz = G.ps * sc; px = pb.cx - sz / 2; py = pb.cy - sz / 2; al = Math.min(1, age / 70);
+      }
+      drawGem(px, py, sz, b[i], al, 0, now2, i * 3 + 1);
+    }
+    if (s.last >= 0 && b[s.last]) {
+      var lb = cellBox(s.last), ms = G.ps * .1;
+      ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(lb.cx - ms / 2, lb.cy - ms / 2, ms, ms);
+    }
+    if (hover >= 0 && !over && !busy() && (!vsAI || s.turn === 1) && b[hover] === 0 && !legal(hover, s.turn).err) {
+      var hb = cellBox(hover), hg = COLS[s.turn].glow;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = rgba(hg, .16); ctx.fillRect(hb.px, hb.py, G.q, G.q);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = rgba(hg, .95); ctx.lineWidth = 1.5;
+      ctx.setLineDash([G.p * .12, G.p * .08]);
+      ctx.strokeRect(hb.bx + .75, hb.by + .75, G.ps - 1.5, G.ps - 1.5);
+      ctx.setLineDash([]);
+    }
+    drawFx(now2);
+    requestAnimationFrame(frame);
+  }
+
+  /* ================= 入力と設定 ================= */
+  function nearest(ev) {
+    var rc = canvas.getBoundingClientRect(), k = W / rc.width;
+    var x = (ev.clientX - rc.left) * k - G.f, y = (ev.clientY - rc.top) * k - G.f;
+    var gx = Math.floor(x / G.p), gy = Math.floor(y / G.p);
+    if (x < 0 || y < 0 || gx < 0 || gy < 0 || gx >= N || gy >= N) return -1;
+    return gy * N + gx;
+  }
+  canvas.addEventListener('pointermove', function (e) { hover = nearest(e); });
+  canvas.addEventListener('pointerleave', function () { hover = -1; });
+  canvas.addEventListener('click', function (e) {
+    var i = nearest(e);
+    if (i < 0 || over || busy()) return;
+    var s = S();
+    if (vsAI && s.turn !== 1) return;
+    play(i, s.turn);
+  });
+  el('bpass').addEventListener('click', function () { if (!busy()) doPass(); });
+  el('bnew').addEventListener('click', newGame);
+  el('bresign').addEventListener('click', function () {
+    if (busy() || over) return;
+    var b = this;
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed'); b.textContent = 'もう一度押して投了';
+      clearTimeout(armTimer); armTimer = setTimeout(disarm, 3000);
+      return;
+    }
+    disarm(); resign(S().turn);
+  });
+  el('ragain').addEventListener('click', newGame);
+  el('rview').addEventListener('click', function () { hideResult(false); });
+  el('bres').addEventListener('click', function () { if (lastShown()) el('result').hidden = false; refresh(); });
+  function lastShown() { return resShownOnce; }
+  el('bundo').addEventListener('click', function () {
+    thinkToken++; clearTimeout(aiTimer);
+    if (history.length < 2 || busy()) return;
+    history.pop();
+    if (vsAI && S().turn === 2 && history.length > 1) history.pop();
+    over = false; fx = []; snapGlow(); refresh();
+    setStatus('一手戻しました。' + turnLine(0));
+    maybeAI();
+  });
+  el('sz').addEventListener('change', function () { N = parseInt(this.value, 10); newGame(); });
+  el('mode').addEventListener('change', function () { vsAI = this.value === 'ai'; newGame(); });
+  el('lv').addEventListener('change', function () { level = parseInt(this.value, 10); newGame(); });
+  el('komi').addEventListener('change', function () { komi = parseFloat(this.value); newGame(); });
+  if (window.ResizeObserver) new ResizeObserver(function () { if (canvas.parentElement.clientWidth !== W) layout(); }).observe(canvas.parentElement);
+
+  (function () {
+    var a = document.getElementById('xshare');
+    var text = 'スクエア碁 ガラスのクリスタルを嵌めて遊ぶ純碁 #スクエア碁';
+    a.href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(location.href.split('#')[0]);
+  })();
+  newGame();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
